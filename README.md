@@ -17,7 +17,7 @@ process.stdin
 Use the CLI:
 
 ```bash
-cat dom.html | webidl-fetch > dom.idl
+curl -sL http://dev.w3.org/csswg/cssom/ | webidl-fetch > cssom.idl
 ```
 
 ## Acknowledgement
