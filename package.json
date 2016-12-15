@@ -1,7 +1,7 @@
 {
   "name": "webidl-extract",
   "description": "Parse a stream of HTML and output the WebIDL within",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Andreas Madsen <amwebdk@gmail.com>",
   "main": "./index.js",
   "bin": {
