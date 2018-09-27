@@ -21,6 +21,7 @@ class WebIDLFetch extends stream.Transform {
 
     let withinIDL = false;
     let withinIDLIndex = false;
+    let idlIndexBlockTag = '';
     let indexHeaderLevel = 0;
 
     this._parser = new htmlparser.Parser({
@@ -43,13 +44,16 @@ class WebIDLFetch extends stream.Transform {
           withinIDLIndex = true;
           if (HEADER_LEVEL.hasOwnProperty(tagName)) {
             indexHeaderLevel = HEADER_LEVEL[tagName.toLowerCase()];
+          } else if (tagName === 'section') {
+            idlIndexBlockTag = tagName;
           } else {
             self.emit('error', new Error(`unexpected idl-index tag <${tagName}>`));
           }
         }
 
-        // An IDL index has previusely been found, this header may indicate
-        // the IDL index section termination.
+        // An IDL index has previusely been found, this tag may indicate
+        // the IDL index section termination, if its hierarchy is higher
+        // than the top-level for the index.
         else if (withinIDLIndex && HEADER_LEVEL.hasOwnProperty(tagName)) {
           // If the header is on the same level or higher, then the section
           // is terminated.
@@ -66,6 +70,9 @@ class WebIDLFetch extends stream.Transform {
         if (withinIDL && tagName === 'pre') {
           withinIDL = false;
           if (!withinIDLIndex) self.push('\n\n');
+        } else if (withinIDLIndex && idlIndexBlockTag === tagName) {
+          withinIDLIndex = false;
+          idlIndexBlockTag = '';
         }
       }
     });
