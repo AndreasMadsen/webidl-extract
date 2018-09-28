@@ -13,6 +13,98 @@ const HEADER_LEVEL = {
   'h6': 6
 };
 
+// Given a string that contains a complete HTML document, return
+// just the WebIDL it contains.
+
+function WebIDLFetchFromString(html) {
+  let outputIDL = '';               // The IDL gets assembled into this string
+  let withinIDL = false;            // Are we currently processing a <pre> containing IDL?
+  let withinIDLIndex = false;       // Are we inside a <pre> in the WebIDL index?
+  let idlIndexBlockTag = '';        // What tag was used to open the index?
+  let indexHeaderLevel = 0;         // At what header level did the index begin?
+
+  const parser = new htmlparser.Parser({
+    // Handle a new opening tag
+    onopentag(tagName, attributes) {
+      if (tagName === 'pre') {
+        const classList = (attributes.class || '').split(/\s+/);
+
+        // The class list must include "idl" but not "extract",
+        // and the attribute list must not include "data-no-idl"
+
+        if (classList.includes('idl') && !classList.includes('extract')
+              && !attributes.hasOwnProperty('data-no-idl')) {
+          withinIDL = true;
+        }
+      }
+
+      // Tags with the ID "idl-index" are the WebIDL index near the bottom
+      // of the page. We don't want to consider anything in the index.
+      // The index comes in one of two forms: The first begins with a
+      // heading element (<hN>) that has the ID "idl-index". For this,
+      // we remember the heading level that we were at so that once
+      // we go up past that level, we consider the index to be closed.
+      // The other is a <section> element with that same ID.
+
+      if (attributes.id === 'idl-index') {
+        withinIDLIndex = true;
+
+        if (HEADER_LEVEL.hasOwnProperty(tagName)) {
+          indexHeaderLevel = HEADER_LEVEL[tagName.toLowerCase()];
+        } else if (tagName === 'section') {
+          idlIndexBlockTag = tagName;
+        } else {
+          throw `Unexpected idl-index tag found: <${tagName}>`;
+        }
+      }
+
+      // If we're already in an IDL index, see if we are exiting it.
+      // This happens if the tag is a heading at a higher level than
+      // the one that started a heading-initiated index. For
+      // <section>-based indexes, closing the index happens in the
+      // onclosetag() function.
+
+      else if (withinIDLIndex && HEADER_LEVEL.hasOwnProperty(tagName)) {
+        const headerLevel = HEADER_LEVEL[tagName];
+
+        if (headerLevel >= indexHeaderLevel) {
+          withinIDLIndex = false;
+        }
+      }
+    },
+
+    // Handle a text node. The text just gets appended to the
+    // output IDL text.
+    ontext(text) {
+      if (withinIDL && !withinIDLIndex) {
+        outputIDL += entities.decodeHTML(text);
+      }
+    },
+
+    // Handle a close tag
+    onclosetag(tagName) {
+      if (withinIDL && tagName === 'pre') {
+        withinIDL = false;
+
+        // If it's IDL we're actually grabbing, make sure there's a blank
+        // line before the next chunk is added
+        if (!withinIDLIndex) {
+          outputIDL += '\n\n';
+        }
+      } else if (withinIDLIndex && idlIndexBlockTag === tagName) {
+        withinIDLIndex = false;
+        idlIndexBlockTag = '';
+      }
+    }
+  });
+
+  // Now send the HTML into the parser for processing
+
+  parser.write(html);
+  parser.end();
+  return outputIDL;
+}
+
 class WebIDLFetch extends stream.Transform {
   constructor(options) {
     super(options);
@@ -92,3 +184,4 @@ class WebIDLFetch extends stream.Transform {
 }
 
 module.exports = WebIDLFetch;
+module.exports.WebIDLFetchFromString = WebIDLFetchFromString;

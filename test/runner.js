@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const endpoint = require('endpoint');
 const WebIDLFetch = require('../index.js');
+const WebIDLFetchFromString = require('../index.js').WebIDLFetchFromString;
 const interpreted = require('interpreted');
 
 interpreted({
@@ -23,4 +24,22 @@ interpreted({
         callback(null, content.toString());
       }));
   }
+});
+
+interpreted({
+  source: path.resolve(__dirname, 'html'),
+  expected: path.resolve(__dirname, 'idl'),
+
+  update: false,
+  sourceRead: false,
+
+  test: function(name, content, callback) {
+    const htmlPath = path.resolve(__dirname, 'html', name + '.html');
+
+    const html = fs.readFileSync(htmlPath);
+    const output = WebIDLFetchFromString(html);
+
+    callback(null, output.toString());
+  }
+
 });
